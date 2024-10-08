@@ -2,6 +2,12 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import json
+from pymongo import MongoClient
+
+# Connect to MongoDB
+client = MongoClient('mongodb://localhost:27017/')
+db = client['tungscrape_db']  # Database name
+collection = db['media_files']  # Collection name
 
 # Utility function to identify media files
 def is_media_file(url):
@@ -37,7 +43,13 @@ def scrape_website(url):
                     'url': media_url,
                     'file_type': file_type
                 }
-                media_data.append(media_info)
+                
+                # Insert the media data into MongoDB if not a duplicate
+                if not collection.find_one({"url": media_url}):
+                    collection.insert_one(media_info)
+                    print(f"Added to MongoDB: {media_info}")
+                else:
+                    print(f"Already exists in MongoDB: {media_url}")
 
         return media_data
 
@@ -45,17 +57,6 @@ def scrape_website(url):
         print(f"An error occurred: {e}")
         return []
 
-# Save scraped media data to a JSON file
-def save_to_json(data, filename='data/scraped_media.json'):
-    with open(filename, 'w') as f:
-        json.dump(data, f, indent=4)
-        print(f"Data saved to {filename}")
-
 if __name__ == "__main__":
     website_url = input("Enter the website URL to scrape: ")
-    media_data = scrape_website(website_url)
-    
-    if media_data:
-        save_to_json(media_data)
-    else:
-        print("No media files found.")
+    scrape_website(website_url)
